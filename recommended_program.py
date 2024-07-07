@@ -45,44 +45,44 @@ def recommend_program(new_resident_array):
 
     return recommended_program_id
 
-if __name__ == '__main__':
-    # Connect to MySQL database
-    conn = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="",
-        database="data"
-    )
+# Connect to MySQL database
+conn = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="",
+    database="data"
+)
 
-    # Check if the connection was successful
-    if conn.is_connected():
-        print("Connected to MySQL database")
+# Check if the connection was successful
+if conn.is_connected():
+    print("Connected to MySQL database")
 
-        # Specify the query
-        query = "SELECT Age, Gender, Student, PWD, isOccupation, isBeneficiaries FROM sample"
+    # Specify the query
+    query = "SELECT Age, Gender, Student, PWD, isOccupation, isBeneficiaries FROM sample"
 
-        # Execute the query
-        cursor = conn.cursor()
-        cursor.execute(query)
+    # Execute the query
+    cursor = conn.cursor()
+    cursor.execute(query)
 
-        # Fetch all rows
-        data = cursor.fetchall()
+    # Fetch all rows
+    data = cursor.fetchall()
 
-        import pandas as pd
-        df = pd.DataFrame(data, columns=['Age', 'Gender', 'Student', 'PWD', 'isOccupation', 'isBeneficiaries'])
+    import pandas as pd
+    df = pd.DataFrame(data, columns=['Age', 'Gender', 'Student', 'PWD', 'isOccupation', 'isBeneficiaries'])
 
-        # Preprocess the data
-        X = preprocess_data_from_db(df)
+    # Preprocess the data
+    X = preprocess_data_from_db(df)
 
-        # Get recommendation
-        recommended_program_id = recommend_program(X)
+    # Get recommendation
+    recommended_program_id = recommend_program(X)
 
-        # Print the recommended program ID
-        print(f"Recommended program ID for the new resident: {recommended_program_id}")
+    # Print the recommended program ID
+    print(f"Recommended program ID for the new resident: {recommended_program_id}")
 
-        # Close cursor and connection
-        cursor.close()
-        conn.close()
-    else:
-        print("Connection to MySQL database failed")
+    # Close cursor and connection
+    cursor.close()
+    conn.close()
+else:
+    print("Connection to MySQL database failed")
+
 
