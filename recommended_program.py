@@ -2,17 +2,17 @@ import numpy as np
 from keras.models import load_model
 import pickle
 import mysql.connector
-
 import os
+import pandas as pd
+from datetime import datetime
 
 # Get the current directory of the script
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Full paths to the model and encoders
-model_path = os.path.join(current_dir, 'rnn_recommendation_model.h5')
-encoders_path = os.path.join(current_dir, 'label_encoders (3).pkl')
-scaler_path = os.path.join(current_dir, 'scaler (3).pkl')
-
+model_path = os.path.join(current_dir, 'rnn_recommendation_model (2).h5')
+encoders_path = os.path.join(current_dir, 'label_encoders (4).pkl')
+scaler_path = os.path.join(current_dir, 'scaler (4).pkl')
 
 model = load_model(model_path)
 
@@ -22,18 +22,20 @@ with open(encoders_path, 'rb') as f:
 with open(scaler_path, 'rb') as f:
     scaler = pickle.load(f)
 
+def calculate_age(birthdate):
+    today = datetime.today()
+    return today.year - birthdate.year - ((today.month, today.day) < (birthdate.month, birthdate.day))
 
-# Function to preprocess data from database
 def preprocess_data_from_db(data):
     # Encode categorical features
     for col, le in label_encoders.items():
         data[col] = le.transform(data[col])
 
     # Normalize numerical features
-    data['Age'] = scaler.transform(data[['Age']])
+    data['birthday'] = scaler.transform(data[['birthday']])
 
     # Convert to a NumPy array
-    X = data[['Age', 'Gender', 'Student', 'PWD', 'isOccupation', 'isBeneficiaries']].values
+    X = data[['birthday', 'gender', 'student', 'pwd', 'isOccupation', 'isBeneficiaries']].values
 
     return X
 
@@ -49,40 +51,36 @@ def recommend_program(new_resident_array):
 conn = mysql.connector.connect(
     host="localhost",
     user="root",
-    password="",
-    database="data"
+    password="",  # Replace with your MySQL password
+    database="sampleDB"
 )
 
-# Check if the connection was successful
 if conn.is_connected():
-    print("Connected to MySQL database")
-
-    # Specify the query
-    query = "SELECT Age, Gender, Student, PWD, isOccupation, isBeneficiaries FROM sample"
-
-    # Execute the query
+    query = "SELECT id, birthday, gender, student, pwd, isOccupation, isBeneficiaries FROM residents WHERE programId IS NULL"
     cursor = conn.cursor()
     cursor.execute(query)
-
-    # Fetch all rows
     data = cursor.fetchall()
 
-    import pandas as pd
-    df = pd.DataFrame(data, columns=['Age', 'Gender', 'Student', 'PWD', 'isOccupation', 'isBeneficiaries'])
+    # Process each row individually
+    for row in data:
+        resident_id = row[0]
+        birthdate = row[1]
+        age = calculate_age(birthdate)
+        resident_data = pd.DataFrame([[age, row[2], row[3], row[4], row[5], row[6]]], columns=['birthday', 'gender', 'student', 'pwd', 'isOccupation', 'isBeneficiaries'])
+        X = preprocess_data_from_db(resident_data)
+        recommended_program_id = recommend_program(X)
 
-    # Preprocess the data
-    X = preprocess_data_from_db(df)
+        # Convert recommended_program_id to a native Python integer
+        recommended_program_id = int(recommended_program_id)
 
-    # Get recommendation
-    recommended_program_id = recommend_program(X)
+        print(f"Id: {resident_id}, ProgramId: {recommended_program_id}")
 
-    # Print the recommended program ID
-    print(f"Recommended program ID for the new resident: {recommended_program_id}")
+        # Update the database with the recommended program ID
+        update_query = "UPDATE residents SET programId = %s WHERE id = %s"
+        cursor.execute(update_query, (recommended_program_id, resident_id))
+        conn.commit()
 
-    # Close cursor and connection
     cursor.close()
     conn.close()
 else:
     print("Connection to MySQL database failed")
-
-
